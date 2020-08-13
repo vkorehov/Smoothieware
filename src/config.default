@@ -6,5 +6,4 @@
 # preserved through updates run this command:
 # git update-index --assume-unchanged src/config.default
 #
-
-
+dfu_enable true
