@@ -1,10 +1,156 @@
-# This is a place for the user to specify their own 'firm' defaults at compile time
-# One can also use this as the primary config system if an sdcard is unavailable
-# The format of this file is identical to that of a normal config file
-#
-# to have git ignore this file so you can keep your own defaults in here that are
-# preserved through updates run this command:
-# git update-index --assume-unchanged src/config.default
-#
+second_usb_serial_enable                     true
+uart0.baud_rate                              115200
+dfu_enable                                   true
+msd_disable                                  true
 
+default_feed_rate                            10000
+default_seek_rate                            20000
+planner_queue_size                           32
+acceleration                                 1000
+z_acceleration                               8000
+acceleration_ticks_per_second                1000
+junction_deviation                           0
+z_junction_deviation                         0
+microseconds_per_step_pulse                  2
+base_stepping_frequency                      100000
+homing_order                                 ZXY
+home_z_first                                 true
+
+endstops_enable                              true
+currentcontrol_module_enable                 false
+return_error_on_unhandled_gcode              true
+
+
+alpha_max_endstop                            1.28!
+alpha_homing_direction                       home_to_max
+alpha_max_travel                             600
+alpha_min                                    0
+alpha_max                                    400
+alpha_fast_homing_rate_mm_s                  50
+alpha_homing_retract_mm                      5
+alpha_slow_homing_rate_mm_s                  20
+
+beta_max_endstop                             1.26!
+beta_homing_direction                        home_to_max
+beta_max_travel                              600
+beta_min                                     0
+beta_max                                     400
+beta_fast_homing_rate_mm_s                   50
+beta_homing_retract_mm                       5
+beta_slow_homing_rate_mm_s                   20
+
+gamma_max_endstop                            1.24!
+gamma_homing_direction                       home_to_max
+gamma_max_travel                             600
+gamma_min                                    0
+gamma_max                                    400
+gamma_fast_homing_rate_mm_s                  50
+gamma_homing_retract_mm                      5
+gamma_slow_homing_rate_mm_s                  20
+
+# X Axis
+alpha_steps_per_mm                           53.3886          # may be steps per degree for example
+alpha_step_pin                               2.2              # Pin for delta stepper step signal
+alpha_dir_pin                                2.3              # Pin for delta stepper direction
+alpha_en_pin                                 2.1              # Pin for delta enable
+alpha_current                                1.5              # Z stepper motor current
+alpha_max_rate                               10000.0          # mm/min
+alpha_acceleration                           1000.0           # mm/sec^2
+
+# Y Axis
+beta_steps_per_mm                            53.3886          # may be steps per degree for example
+beta_step_pin                                0.19             # Pin for delta stepper step signal
+beta_dir_pin                                 0.20             # Pin for delta stepper direction
+beta_en_pin                                  2.8              # Pin for delta enable
+beta_current                                 1.5              # Z stepper motor current
+beta_max_rate                                10000.0          # mm/min
+beta_acceleration                            1000.0           # mm/sec^2
+
+# Z Axis
+gamma_steps_per_mm                           53.3886          # may be steps per degree for example
+gamma_step_pin                               0.22             # Pin for delta stepper step signal
+gamma_dir_pin                                2.11             # Pin for delta stepper direction
+gamma_en_pin                                 0.21             # Pin for delta enable
+gamma_current                                1.5              # Z stepper motor current
+gamma_max_rate                               10000.0          # mm/min
+gamma_acceleration                           1000.0           # mm/sec^2
+
+# A axis
+extruder.a.enable                            true             # Whether to activate the extruder module at all. All configuration is ignored if false
+extruder.a.steps_per_mm                      8.8888           # Steps per mm for extruder stepper
+extruder.a.default_feed_rate                 60000            # Default rate ( mm/minute ) for moves where only the extruder moves
+extruder.a.acceleration                      5000             # Acceleration for the stepper motor, as of 0.6, arbitrary ratio
+extruder.a.max_speed                         180              # mm/s
+extruder.a.step_pin                          2.13             # Pin for extruder step signal
+extruder.a.dir_pin                           0.11             # Pin for extruder dir signal
+extruder.a.en_pin                            2.12             # Pin for extruder enable signal
+delta_current                                0.2              # First extruder stepper motor current
+
+# B axis
+extruder.b.enable                            true             # Whether to activate the extruder module at all. All configuration is ignored if false
+extruder.b.steps_per_mm                      8.8888           # Steps per mm for extruder stepper
+extruder.b.default_feed_rate                 60000            # Default rate ( mm/minute ) for moves where only the extruder moves
+extruder.b.acceleration                      5000             # Acceleration for the stepper motor, as of 0.6, arbitrary ratio
+extruder.b.max_speed                         180              # mm/s
+extruder.b.step_pin                          0.1              # Pin for extruder step signal
+extruder.b.dir_pin                           0.0              # Pin for extruder dir signal
+extruder.b.en_pin                            0.10             # Pin for extruder enable signal
+epsilon_current                              0.2              # Second extruder stepper motor current
+
+# Cartesian axis speed limits
+x_axis_max_speed                             15000            # mm/min
+y_axis_max_speed                             15000            # mm/min
+z_axis_max_speed                             10000            # mm/min
+
+# Vacuum switches
+switch.n1_vac.enable                         true
+switch.n1_vac.input_on_command               M800
+switch.n1_vac.input_off_command              M801
+switch.n1_vac.output_pin                     2.4
+switch.n1_vac.output_type                    digital
+
+switch.n1_exh.enable                         true
+switch.n1_exh.input_on_command               M802
+switch.n1_exh.input_off_command              M803
+switch.n1_exh.output_pin                     2.6
+switch.n1_exh.output_type                    digital
+
+switch.n2_vac.enable                         true
+switch.n2_vac.input_on_command               M804
+switch.n2_vac.input_off_command              M805
+switch.n2_vac.output_pin                     2.7
+switch.n2_vac.output_type                    digital
+
+switch.n2_exh.enable                         true
+switch.n2_exh.input_on_command               M806
+switch.n2_exh.input_off_command              M807
+switch.n2_exh.output_pin                     2.5
+switch.n2_exh.output_type                    digital
+
+switch.vac.enable                            true
+switch.vac.input_on_command                  M808
+switch.vac.input_off_command                 M809
+switch.vac.output_pin                        1.22
+switch.vac.output_type                       digital
+
+# switch camera LED
+switch.led.enable                            true
+switch.led.input_on_command                  M810
+switch.led.input_off_command                 M811
+switch.led.output_pin                        1.0
+switch.led.output_type                       pwm
+
+# Switch module for first Z stepper motor driver
+switch.y1.enable                            true             # Enable this module
+switch.y1.input_on_command                  M1001            # Turn ON 
+switch.y1.input_off_command                 M1011            # Turn OFF 
+switch.y1.startup_state                     true
+switch.y1.output_pin                        1.23             # Pin to control enable pin of driver
+
+# Switch module for second Z stepper motor driver
+switch.y2.enable                            true             # Enable this module
+switch.y2.input_on_command                  M1002            # Turn ON 
+switch.y2.input_off_command                 M1012            # Turn OFF 
+switch.y2.startup_state                     true
+switch.y2.output_pin                        2.0              # Pin to control enable pin of driver
 

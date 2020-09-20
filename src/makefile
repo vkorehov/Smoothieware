@@ -29,7 +29,7 @@ ENABLE_DEBUG_MONITOR?=0
 
 # this is the default UART baud rate used if it is not set in config
 # it is also the baud rate used to report any errors found while parsing the config file
-DEFAULT_SERIAL_BAUD_RATE?=9600
+DEFAULT_SERIAL_BAUD_RATE?=115200
 
 ifeq "$(ENABLE_DEBUG_MONITOR)" "1"
 # Can add MRI_UART_BAUD=115200 to next line if GDB fails to connect to MRI.
@@ -51,7 +51,7 @@ DEFINES += -D__GITVERSIONSTRING__=\"$(shell generate-version.bat)\"
 endif
 
 # use c++11 features for the checksums and set default baud rate for serial uart
-DEFINES += -DCHECKSUM_USE_CPP -DDEFAULT_SERIAL_BAUD_RATE=$(DEFAULT_SERIAL_BAUD_RATE)
+DEFINES += -DDISABLEMSD -DCHECKSUM_USE_CPP -DDEFAULT_SERIAL_BAUD_RATE=$(DEFAULT_SERIAL_BAUD_RATE)
 
 ifneq "$(STEPTICKER_DEBUG_PIN)" ""
 # Set a Pin here that toggles on end of move
