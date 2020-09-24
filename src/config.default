@@ -27,8 +27,9 @@ alpha_max_travel                             600
 alpha_min                                    0
 alpha_max                                    400
 alpha_fast_homing_rate_mm_s                  50
-alpha_homing_retract_mm                      5
+alpha_homing_retract_mm                      2
 alpha_slow_homing_rate_mm_s                  20
+alpha_limit_enable                           true
 
 beta_max_endstop                             1.26!
 beta_homing_direction                        home_to_max
@@ -36,8 +37,9 @@ beta_max_travel                              600
 beta_min                                     0
 beta_max                                     400
 beta_fast_homing_rate_mm_s                   50
-beta_homing_retract_mm                       5
+beta_homing_retract_mm                       2
 beta_slow_homing_rate_mm_s                   20
+beta_limit_enable                            true
 
 gamma_max_endstop                            1.24!
 gamma_homing_direction                       home_to_max
@@ -45,8 +47,10 @@ gamma_max_travel                             600
 gamma_min                                    0
 gamma_max                                    400
 gamma_fast_homing_rate_mm_s                  50
-gamma_homing_retract_mm                      5
+gamma_homing_retract_mm                      2
 gamma_slow_homing_rate_mm_s                  20
+gamma_limit_enable                           true
+
 
 # X Axis
 alpha_steps_per_mm                           53.3886          # may be steps per degree for example
@@ -77,25 +81,27 @@ gamma_acceleration                           1000.0           # mm/sec^2
 
 # A axis
 extruder.a.enable                            true             # Whether to activate the extruder module at all. All configuration is ignored if false
-extruder.a.steps_per_mm                      8.8888           # Steps per mm for extruder stepper
-extruder.a.default_feed_rate                 60000            # Default rate ( mm/minute ) for moves where only the extruder moves
-extruder.a.acceleration                      5000             # Acceleration for the stepper motor, as of 0.6, arbitrary ratio
+extruder.a.steps_per_mm                      0.5555           # Steps per mm for extruder stepper
+extruder.a.default_feed_rate                 10000            # Default rate ( mm/minute ) for moves where only the extruder moves
+extruder.a.acceleration                      1000             # Acceleration for the stepper motor, as of 0.6, arbitrary ratio
 extruder.a.max_speed                         180              # mm/s
 extruder.a.step_pin                          2.13             # Pin for extruder step signal
 extruder.a.dir_pin                           0.11             # Pin for extruder dir signal
 extruder.a.en_pin                            2.12             # Pin for extruder enable signal
 delta_current                                0.2              # First extruder stepper motor current
 
+
 # B axis
 extruder.b.enable                            true             # Whether to activate the extruder module at all. All configuration is ignored if false
-extruder.b.steps_per_mm                      8.8888           # Steps per mm for extruder stepper
-extruder.b.default_feed_rate                 60000            # Default rate ( mm/minute ) for moves where only the extruder moves
-extruder.b.acceleration                      5000             # Acceleration for the stepper motor, as of 0.6, arbitrary ratio
+extruder.b.steps_per_mm                      0.5555           # Steps per mm for extruder stepper
+extruder.b.default_feed_rate                 10000            # Default rate ( mm/minute ) for moves where only the extruder moves
+extruder.b.acceleration                      1000             # Acceleration for the stepper motor, as of 0.6, arbitrary ratio
 extruder.b.max_speed                         180              # mm/s
 extruder.b.step_pin                          0.1              # Pin for extruder step signal
 extruder.b.dir_pin                           0.0              # Pin for extruder dir signal
 extruder.b.en_pin                            0.10             # Pin for extruder enable signal
 epsilon_current                              0.2              # Second extruder stepper motor current
+
 
 # Cartesian axis speed limits
 x_axis_max_speed                             15000            # mm/min
