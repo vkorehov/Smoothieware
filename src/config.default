@@ -102,6 +102,42 @@ extruder.b.dir_pin                           0.0              # Pin for extruder
 extruder.b.en_pin                            0.10             # Pin for extruder enable signal
 epsilon_current                              0.2              # Second extruder stepper motor current
 
+temperature_control.p0.enable                       true
+temperature_control.p0.sensor                       ad8495
+temperature_control.p0.ad8495_pin                   0.25
+temperature_control.p0.ad8495_offset               -600
+temperature_control.p0.ad8495_multiplier           -1
+temperature_control.p0.designator                   p0
+temperature_control.p0.max_temp                     600
+temperature_control.p0.min_temp                     0
+temperature_control.p0.set_m_code                   104
+temperature_control.p0.set_and_wait_m_code          109
+temperature_control.p0.heater_pin                   1.22
+temperature_control.p0.bang_bang                    true
+temperature_control.p0.hysteresis                   50
+temperature_control.p0.runaway_heating_timeout      0
+temperature_control.p0.runaway_cooling_timeout      0
+temperature_control.p0.runaway_range                0
+temperature_control.p0.runaway_error_range          0
+
+
+temperature_control.p1.enable                       true
+temperature_control.p1.sensor                       ad8495
+temperature_control.p1.ad8495_pin                   0.24
+temperature_control.p1.ad8495_offset               -600
+temperature_control.p1.ad8495_multiplier           -1
+temperature_control.p1.designator                   p1
+temperature_control.p1.max_temp                     600
+temperature_control.p1.min_temp                     0
+
+temperature_control.p2.enable                       true
+temperature_control.p2.sensor                       ad8495
+temperature_control.p2.ad8495_pin                   0.23
+temperature_control.p2.ad8495_offset               -600
+temperature_control.p2.ad8495_multiplier           -1
+temperature_control.p2.designator                   p2
+temperature_control.p2.max_temp                     600
+temperature_control.p2.min_temp                     0
 
 # Cartesian axis speed limits
 x_axis_max_speed                             15000            # mm/min
@@ -133,11 +169,11 @@ switch.n2_exh.input_off_command              M807
 switch.n2_exh.output_pin                     2.5
 switch.n2_exh.output_type                    digital
 
-switch.vac.enable                            true
-switch.vac.input_on_command                  M808
-switch.vac.input_off_command                 M809
-switch.vac.output_pin                        1.22
-switch.vac.output_type                       digital
+#switch.vac.enable                            true
+#switch.vac.input_on_command                  M808
+#switch.vac.input_off_command                 M809
+#switch.vac.output_pin                        1.22
+#switch.vac.output_type                       digital
 
 # switch camera LED
 switch.led.enable                            true

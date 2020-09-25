@@ -24,6 +24,7 @@
 
 #define AD8495_pin_checksum            CHECKSUM("ad8495_pin")
 #define AD8495_offset_checksum         CHECKSUM("ad8495_offset")
+#define AD8495_multiplier_checksum     CHECKSUM("ad8495_multiplier")
 
 AD8495::AD8495()
 {
@@ -41,14 +42,16 @@ void AD8495::UpdateConfig(uint16_t module_checksum, uint16_t name_checksum)
     // Thermistor pin for ADC readings
     this->AD8495_pin.from_string(THEKERNEL->config->value(module_checksum, name_checksum, AD8495_pin_checksum)->required()->as_string());
     this->AD8495_offset = THEKERNEL->config->value(module_checksum, name_checksum, AD8495_offset_checksum)->by_default(0)->as_number(); // Stated offset. For Adafruit board it is 250C. If pin 2(REF) of amplifier is connected to 0V then there is 0C offset.
-	
+    this->AD8495_multiplier = THEKERNEL->config->value(module_checksum, name_checksum, AD8495_multiplier_checksum)->by_default(1)->as_number(); // 1 for normal operation. -1 if you would like to invert readings
+
     THEKERNEL->adc->enable_pin(&AD8495_pin);
 }
 
 
 float AD8495::get_temperature()
 {
-    float t= adc_value_to_temperature(new_AD8495_reading());
+    float t = adc_value_to_temperature(new_AD8495_reading());
+
     // keep track of min/max for M305
     if(t > max_temp) max_temp= t;
     if(t < min_temp) min_temp= t;
@@ -62,7 +65,7 @@ void AD8495::get_raw()
     const uint32_t max_adc_value= THEKERNEL->adc->get_max_value();
     float t=((float)adc_value)/(((float)max_adc_value)/3.3*0.005);
 
-    t = t - this->AD8495_offset;
+    t = (t * this->AD8495_multiplier) - this->AD8495_offset;
 	
     THEKERNEL->streams->printf("adc= %d, max_adc= %lu, temp= %f, offset = %f\n", adc_value,max_adc_value,t, this->AD8495_offset);
 
@@ -78,7 +81,7 @@ float AD8495::adc_value_to_temperature(uint32_t adc_value)
 
     float t=((float)adc_value)/(((float)max_adc_value)/3.3*0.005);
 
-    t=t-this->AD8495_offset;
+    t = (t * this->AD8495_multiplier) - this->AD8495_offset;
 	
     return t;
 }
