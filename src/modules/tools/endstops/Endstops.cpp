@@ -46,12 +46,11 @@
     CHECKSUM(X "_homing_direction"),      \
     CHECKSUM(X "_min"),                   \
     CHECKSUM(X "_max"),                   \
-    CHECKSUM(X "_limit_enable"),          \
-    CHECKSUM(X "_retract_until_off")      \
+    CHECKSUM(X "_limit_enable")           \
 }
 
 // checksum defns
-enum DEFNS {MIN_PIN, MAX_PIN, MAX_TRAVEL, FAST_RATE, SLOW_RATE, RETRACT, DIRECTION, MIN, MAX, LIMIT, RETRACT_UNTIL_OFF, NDEFNS};
+enum DEFNS {MIN_PIN, MAX_PIN, MAX_TRAVEL, FAST_RATE, SLOW_RATE, RETRACT, DIRECTION, MIN, MAX, LIMIT, NDEFNS};
 
 // global config settings
 #define corexy_homing_checksum           CHECKSUM("corexy_homing")
@@ -163,6 +162,7 @@ bool Endstops::load_old_config()
 
         // retract in mm
         hinfo.retract= THEKERNEL->config->value(checksums[i][RETRACT])->by_default(5)->as_number();
+
         // get homing direction and convert to boolean where true is home to min, and false is home to max
         hinfo.home_direction= THEKERNEL->config->value(checksums[i][DIRECTION])->by_default("home_to_min")->as_string() != "home_to_max";
 
@@ -193,8 +193,6 @@ bool Endstops::load_old_config()
             info->debounce= 0;
             info->axis= 'X'+i;
             info->axis_index= i;
-
-            info->retract_until_off= THEKERNEL->config->value(checksums[i][RETRACT_UNTIL_OFF])->by_default(false)->as_bool();
 
             // limits enabled
             info->limit_enable= THEKERNEL->config->value(checksums[i][LIMIT])->by_default(false)->as_bool();
@@ -454,6 +452,7 @@ bool Endstops::debounced_get(Pin *pin)
     return false;
 }
 
+
 // if limit switches are enabled, then we must move off of the endstop otherwise we won't be able to move
 // checks if triggered and only backs off if triggered
 void Endstops::back_off_home(axis_bitmap_t axis)
@@ -468,16 +467,15 @@ void Endstops::back_off_home(axis_bitmap_t axis)
         // Move off of the endstop using a regular relative move in Z only
         params.push_back({'Z', THEROBOT->from_millimeters(homing_axis[Z_AXIS].retract * (homing_axis[Z_AXIS].home_direction ? 1 : -1))});
         slow_rate= homing_axis[Z_AXIS].slow_rate;
-
     } else {
         // cartesians concatenate all the moves we need to do into one gcode
         for( auto& e : homing_axis) {
             if(!axis[e.axis_index]) continue; // only for axes we asked to move
 
             // if not triggered no need to move off
-            if(e.pin_info != nullptr && (e.pin_info->limit_enable || e.pin_info->retract_until_off) && debounced_get(&e.pin_info->pin)) {
+            if(e.pin_info != nullptr && e.pin_info->limit_enable && debounced_get(&e.pin_info->pin)) {
                 char ax= e.axis;
-                params.push_back({ax, THEROBOT->from_millimeters(e.retract * (e.home_direction ? 1 : -1))});
+                params.push_back({ax, THEROBOT->from_millimeters(e.retract * (e.home_direction ? 1 : -1))});                                
                 // select slowest of them all
                 slow_rate= isnan(slow_rate) ? e.slow_rate : std::min(slow_rate, e.slow_rate);
             }
@@ -621,10 +619,9 @@ uint32_t Endstops::read_endstops(uint32_t dummy)
 
         if(STEPPER[m]->is_moving()) {
             // if it is moving then we check the associated endstop, and debounce it
-            if(e.pin_info->pin.get()) {
+            if((!e.pin_info->inverted && e.pin_info->pin.get()) || (e.pin_info->inverted && !e.pin_info->pin.get())) {
                 if(e.pin_info->debounce < debounce_ms) {
                     e.pin_info->debounce++;
-
                 } else {
                     if(is_corexy && (m == X_AXIS || m == Y_AXIS)) {
                         // corexy when moving in X or Y we need to stop both the X and Y motors
@@ -637,7 +634,6 @@ uint32_t Endstops::read_endstops(uint32_t dummy)
                     }
                     e.pin_info->triggered= true;
                 }
-
             } else {
                 // The endstop was not hit yet
                 e.pin_info->debounce= 0;
@@ -681,14 +677,20 @@ void Endstops::home(axis_bitmap_t a)
     for(auto& e : endstops) {
        e->debounce= 0;
        e->triggered= false;
+       e->inverted= false;
     }
-
+    
     if (is_scara) {
         THEROBOT->disable_arm_solution = true;  // Polar bots has to home in the actuator space.  Arm solution disabled.
     }
 
     this->axis_to_home= a;
-
+    
+    auto z_endstop_hit_initially = false;
+    
+    if(axis_to_home[Z_AXIS]) {
+        z_endstop_hit_initially= debounced_get(&homing_axis[Z_AXIS].pin_info->pin);
+    }
     // Start moving the axes to the origin
     this->status = MOVING_TO_ENDSTOP_FAST;
 
@@ -697,6 +699,19 @@ void Endstops::home(axis_bitmap_t a)
     if(!home_z_first) home_xy();
 
     if(axis_to_home[Z_AXIS]) {
+        // special procedure to move away from already hit homing switch
+        if (z_endstop_hit_initially) {
+            homing_axis[Z_AXIS].pin_info->inverted= true;
+            // now home z
+            float delta[3] {0, 0, -homing_axis[Z_AXIS].max_travel}; // we go the min z
+            if(homing_axis[Z_AXIS].home_direction) delta[Z_AXIS]= -delta[Z_AXIS];
+            THEROBOT->delta_move(delta, homing_axis[Z_AXIS].fast_rate, 3);
+            // wait for Z
+            THECONVEYOR->wait_for_idle();
+            // restore state back
+            this->status = MOVING_TO_ENDSTOP_FAST;                
+            homing_axis[Z_AXIS].pin_info->inverted= false;
+        }
         // now home z
         float delta[3] {0, 0, homing_axis[Z_AXIS].max_travel}; // we go the max z
         if(homing_axis[Z_AXIS].home_direction) delta[Z_AXIS]= -delta[Z_AXIS];

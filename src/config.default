@@ -23,19 +23,19 @@ return_error_on_unhandled_gcode              true
 
 alpha_max_endstop                            1.28!
 alpha_homing_direction                       home_to_max
-alpha_max_travel                             600
+alpha_max_travel                             380
 alpha_min                                    0
-alpha_max                                    400
+alpha_max                                    360
 alpha_fast_homing_rate_mm_s                  50
-alpha_homing_retract_mm                      2
+alpha_homing_retract_mm                      4
 alpha_slow_homing_rate_mm_s                  20
-alpha_limit_enable                           false
+alpha_limit_enable                           true
 
 beta_max_endstop                             1.26!
 beta_homing_direction                        home_to_max
-beta_max_travel                              600
+beta_max_travel                              380
 beta_min                                     0
-beta_max                                     400
+beta_max                                     328
 beta_fast_homing_rate_mm_s                   50
 beta_homing_retract_mm                       2
 beta_slow_homing_rate_mm_s                   20
@@ -46,14 +46,13 @@ gamma_homing_direction                       home_to_max
 gamma_max_travel                             64
 gamma_min                                    0
 gamma_max                                    64
-gamma_homing_retract_mm                      10
+gamma_homing_retract_mm                      5
 gamma_fast_homing_rate_mm_s                  60
 gamma_slow_homing_rate_mm_s                  30
 gamma_limit_enable                           false
 
-
 # X Axis
-alpha_steps_per_mm                           53.3886          # may be steps per degree for example
+alpha_steps_per_mm                           106.7772         # may be steps per degree for example
 alpha_step_pin                               2.2              # Pin for delta stepper step signal
 alpha_dir_pin                                2.3              # Pin for delta stepper direction
 alpha_en_pin                                 2.1              # Pin for delta enable
@@ -62,7 +61,7 @@ alpha_max_rate                               10000.0          # mm/min
 alpha_acceleration                           1000.0           # mm/sec^2
 
 # Y Axis
-beta_steps_per_mm                            53.3886          # may be steps per degree for example
+beta_steps_per_mm                            106.7772         # may be steps per degree for example
 beta_step_pin                                0.19             # Pin for delta stepper step signal
 beta_dir_pin                                 0.20             # Pin for delta stepper direction
 beta_en_pin                                  2.8              # Pin for delta enable
@@ -177,11 +176,11 @@ switch.led.input_off_command                 M811
 switch.led.output_pin                        1.0
 switch.led.output_type                       pwm
 #
-switch.led_ctl.enable                        true
-switch.led_ctl.input_on_command              M812
-switch.led_ctl.input_off_command             M813
-switch.led_ctl.output_pin                    0.15
-switch.led_ctl.output_type                   digital
+#switch.led_ctl.enable                        true
+#switch.led_ctl.input_on_command              M812
+#switch.led_ctl.input_off_command             M813
+#switch.led_ctl.output_pin                    0.15
+#switch.led_ctl.output_type                   digital
 
 # Switch module for first Z stepper motor driver
 switch.y1.enable                            true             # Enable this module
