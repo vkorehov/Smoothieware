@@ -47,10 +47,11 @@
     CHECKSUM(X "_min"),                   \
     CHECKSUM(X "_max"),                   \
     CHECKSUM(X "_limit_enable"),          \
+    CHECKSUM(X "_retract_until_off")      \
 }
 
 // checksum defns
-enum DEFNS {MIN_PIN, MAX_PIN, MAX_TRAVEL, FAST_RATE, SLOW_RATE, RETRACT, DIRECTION, MIN, MAX, LIMIT, NDEFNS};
+enum DEFNS {MIN_PIN, MAX_PIN, MAX_TRAVEL, FAST_RATE, SLOW_RATE, RETRACT, DIRECTION, MIN, MAX, LIMIT, RETRACT_UNTIL_OFF, NDEFNS};
 
 // global config settings
 #define corexy_homing_checksum           CHECKSUM("corexy_homing")
@@ -162,7 +163,6 @@ bool Endstops::load_old_config()
 
         // retract in mm
         hinfo.retract= THEKERNEL->config->value(checksums[i][RETRACT])->by_default(5)->as_number();
-
         // get homing direction and convert to boolean where true is home to min, and false is home to max
         hinfo.home_direction= THEKERNEL->config->value(checksums[i][DIRECTION])->by_default("home_to_min")->as_string() != "home_to_max";
 
@@ -193,6 +193,8 @@ bool Endstops::load_old_config()
             info->debounce= 0;
             info->axis= 'X'+i;
             info->axis_index= i;
+
+            info->retract_until_off= THEKERNEL->config->value(checksums[i][RETRACT_UNTIL_OFF])->by_default(false)->as_bool();
 
             // limits enabled
             info->limit_enable= THEKERNEL->config->value(checksums[i][LIMIT])->by_default(false)->as_bool();
@@ -473,7 +475,7 @@ void Endstops::back_off_home(axis_bitmap_t axis)
             if(!axis[e.axis_index]) continue; // only for axes we asked to move
 
             // if not triggered no need to move off
-            if(e.pin_info != nullptr && e.pin_info->limit_enable && debounced_get(&e.pin_info->pin)) {
+            if(e.pin_info != nullptr && (e.pin_info->limit_enable || e.pin_info->retract_until_off) && debounced_get(&e.pin_info->pin)) {
                 char ax= e.axis;
                 params.push_back({ax, THEROBOT->from_millimeters(e.retract * (e.home_direction ? 1 : -1))});
                 // select slowest of them all
