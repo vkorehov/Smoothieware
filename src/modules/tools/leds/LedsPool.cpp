@@ -5,36 +5,35 @@
       You should have received a copy of the GNU General Public License along with Smoothie. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "libs/Module.h"
+#include "libs/Kernel.h"
+#include <math.h>
+using namespace std;
+#include <vector>
+#include "LedsPool.h"
+#include "Leds.h"
+#include "Config.h"
+#include "checksumm.h"
+#include "ConfigValue.h"
+
+#define leds_checksum CHECKSUM("leds")
+#define enable_checksum CHECKSUM("enable")
+
+void LedsPool::load_tools()
+{
+    vector<uint16_t> modules;
+    THEKERNEL->config->get_module_list( &modules, leds_checksum );
+
+    for( unsigned int i = 0; i < modules.size(); i++ ) {
+        // If module is enabled
+        if( THEKERNEL->config->value(leds_checksum, modules[i], enable_checksum )->as_bool() == true ) {
+            Leds *controller = new Leds(modules[i]);
+            THEKERNEL->add_module(controller);
+        }
+    }
+}
 
 
-#pragma once
 
-#include <stdint.h>
-#include <array>
-#include <bitset>
-#include <functional>
-#include <atomic>
 
-#include "TSRingBuffer.h"
 
-class WS2812{
-    public:
-        WS2812();
-        ~WS2812();
-        void set_color( uint32_t color );
-        void set_led_count( uint32_t count );
-        
-        void start();
-        void stop();
-        void tick(void);
-
-        static WS2812 *getInstance() { return instance; }
-
-    private:
-        uint8_t green;
-        uint8_t red;
-        uint8_t blue;
-                
-        uint32_t led_count;
-        static WS2812 *instance;
-};

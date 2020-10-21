@@ -16,6 +16,7 @@
 #include "modules/tools/scaracal/SCARAcal.h"
 #include "RotaryDeltaCalibration.h"
 #include "modules/tools/switch/SwitchPool.h"
+#include "modules/tools/leds/LedsPool.h"
 #include "modules/tools/temperatureswitch/TemperatureSwitch.h"
 #include "modules/tools/drillingcycles/Drillingcycles.h"
 #include "FilamentDetector.h"
@@ -137,6 +138,11 @@ void init() {
     sp->load_tools();
     delete sp;
     #endif
+    #ifndef NO_LEDS_SWITCH
+    LedsPool *ledsp= new LedsPool();
+    ledsp->load_tools();
+    delete ledsp;
+    #endif    
     #ifndef NO_TOOLS_EXTRUDER
     // NOTE this must be done first before Temperature control so ToolManager can handle Tn before temperaturecontrol module does
     ExtruderMaker *em= new ExtruderMaker();

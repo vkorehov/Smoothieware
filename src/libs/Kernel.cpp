@@ -134,7 +134,7 @@ Kernel::Kernel()
     NVIC_SetPriority(TIMER0_IRQn, 2);
     NVIC_SetPriority(TIMER1_IRQn, 1);
     NVIC_SetPriority(TIMER2_IRQn, 4);
-    NVIC_SetPriority(TIMER3_IRQn, 4);
+    NVIC_SetPriority(TIMER3_IRQn, 0);
     NVIC_SetPriority(PendSV_IRQn, 3);
 
     // Set other priorities lower than the timers
@@ -168,8 +168,9 @@ Kernel::Kernel()
     this->add_module( this->robot          = new Robot()         );
     this->add_module( this->simpleshell    = new SimpleShell()   );
 
+
     this->planner = new Planner();
-    this->configurator = new Configurator();
+    this->configurator = new Configurator();	
 }
 
 // return a GRBL-like query string for serial ?
