@@ -606,6 +606,52 @@ uint32_t Endstops::read_endstops(uint32_t dummy)
     if(limit_enabled) check_limits();
 
     if(this->status != MOVING_TO_ENDSTOP_SLOW && this->status != MOVING_TO_ENDSTOP_FAST) return 0; // not doing anything we need to monitor for
+    /*
+        Rack and Pinion Head Homing
+        The Z axis has a home switch that is triggered for half the length
+        of the axis. To home it we need to first check if the switch is
+        triggered, and if it is we need to back off until it's no longer
+        triggered. Then we can perform a normal homing operation.
+    */
+    int rp_axis = Z_AXIS;
+    // If we are homing Z and Z switch is already triggered, back away first
+    if (((axes_to_move >> rp_axis) & 1) && this->pins[rp_axis + (this->home_direction[rp_axis] ? 0 : 3)].get()) {
+        // Start moving away from the switch
+        this->status = MOVING_BACK;
+        this->feed_rate[rp_axis]= this->fast_rates[rp_axis];
+        STEPPER[rp_axis]->move(!this->home_direction[rp_axis], 10000000, 0);
+
+        // Wait for the switch to clear
+        unsigned int debounce = 0;
+        while (debounce <= debounce_count) {
+            if (!this->pins[rp_axis + (this->home_direction[rp_axis] ? 0 : 3)].get()) {
+                debounce++;
+            }
+            else {
+                debounce = 0;
+            }
+
+            THEKERNEL->call_event(ON_IDLE);
+
+            // check if on_halt (eg kill)
+            if(THEKERNEL->is_halted()) return;
+        }
+
+        // Stop the movement
+        if (STEPPER[rp_axis]->is_moving()) {
+            STEPPER[rp_axis]->move(0, 0);
+        }
+    }
+
+    // this homing works for cartesian and delta printers
+    // Start moving the axes to the origin
+    this->status = MOVING_TO_ENDSTOP_FAST;
+    for ( int c = X_AXIS; c <= Z_AXIS; c++ ) {
+        if ( ( axes_to_move >> c) & 1 ) {
+            this->feed_rate[c] = this->fast_rates[c];
+            STEPPER[c]->move(this->home_direction[c], 10000000, 0);
+        }
+    }
 
     // check each homing endstop
     for(auto& e : homing_axis) { // check all axis homing endstops

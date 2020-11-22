@@ -188,3 +188,4 @@ switch.y2.input_off_command                 M1012            # Turn OFF
 switch.y2.startup_state                     true
 switch.y2.output_pin                        2.0              # Pin to control enable pin of driver
 
+

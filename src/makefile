@@ -50,6 +50,12 @@ else
 DEFINES += -D__GITVERSIONSTRING__=\"$(shell generate-version.bat)\"
 endif
 
+ifeq "$(OS)" "Windows_NT"
+COPY_CMD = copy /Y ..\LPC1768\$(PROJECT).elf ..\LPC1768\$(PROJECT)_lastupload.elf
+else
+COPY_CMD = cp ../LPC1768/$(PROJECT).elf ../LPC1768/$(PROJECT)_lastupload.elf
+endif
+
 # use c++11 features for the checksums and set default baud rate for serial uart
 DEFINES += -DDISABLEMSD -DCHECKSUM_USE_CPP -DDEFAULT_SERIAL_BAUD_RATE=$(DEFAULT_SERIAL_BAUD_RATE)
 
