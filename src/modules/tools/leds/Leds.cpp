@@ -83,7 +83,6 @@ void Leds::on_config_reload(void *argument)
 {	
     this->subcode = THEKERNEL->config->value(leds_checksum, this->name_checksum, command_subcode_checksum )->by_default(0)->as_number();
     this->led_count = THEKERNEL->config->value(leds_checksum, this->name_checksum, led_count_checksum )->by_default(8)->as_number();
-    set_colors(0x000000); // turn off leds by default.
 	
     std::string input_on_command = THEKERNEL->config->value(leds_checksum, this->name_checksum, input_on_command_checksum )->by_default("")->as_string();
     std::string input_off_command = THEKERNEL->config->value(leds_checksum, this->name_checksum, input_off_command_checksum )->by_default("")->as_string();
@@ -123,6 +122,8 @@ void Leds::on_config_reload(void *argument)
     }
 	
     this->digital_pin->set(this->leds_state);
+	this->brg1 = this-> brg2 = 0x000000;
+    set_colors(brg1, brg2); // turn off leds by default.	
 }
 
 bool Leds::match_input_on_gcode(const Gcode *gcode) const
@@ -149,6 +150,7 @@ uint8_t Leds::reverse(uint8_t b) {
 
 void Leds::on_gcode_received(void *argument)
 {
+	uint8_t c = 0;	
     Gcode *gcode = static_cast<Gcode *>(argument);
     // Add the gcode to the queue ourselves if we need it
     if (!(match_input_on_gcode(gcode) || match_input_off_gcode(gcode))) {
@@ -163,6 +165,7 @@ void Leds::on_gcode_received(void *argument)
 		uint8_t r = 0;
 		uint8_t g = 0;
 		uint8_t b = 0;
+		
 		if(args.find('R') != args.end()) {
 			r = reverse((uint8_t)args['R']);
 		}
@@ -172,22 +175,50 @@ void Leds::on_gcode_received(void *argument)
 		if(args.find('B') != args.end()) {
 			b = reverse((uint8_t)args['B']);			
 		}
-        uint32_t brg = (b << 16) | (r << 8) | (g << 0);
+		if(args.find('C') != args.end()) {
+			c = (uint8_t)args['C'];
+		}
+        uint32_t brg = (b << 16) | (r << 8) | (g << 0);		
+        switch(c) {
+            case 1:
+				this->brg1 = brg;
+            break;		  
+            case 2:
+				this->brg2 = brg;
+            break;
+            default:
+			    this->brg1 = this->brg2 = brg;
+        }
         // drain queue
         THEKERNEL->conveyor->wait_for_idle();
-        this->leds_state = true;		
-        set_colors(brg);
+        this->leds_state = true;
+        set_colors(brg1, brg2);
     } else if(match_input_off_gcode(gcode)) {
+        auto args = gcode->get_args();		
+		if(args.find('C') != args.end()) {
+			c = (uint8_t)args['C'];
+		}
+        switch(c) {
+            case 1:
+				this->brg1 = 0;
+            break;		  
+            case 2:
+				this->brg2 = 0;
+            break;
+            default:
+			    this->brg1 = this->brg2 = 0;
+        }
         // drain queue
         THEKERNEL->conveyor->wait_for_idle();
         this->leds_state = false;
-        set_colors(0x000000);
+        set_colors(this->brg1, this->brg2);
     }
 }
 
-void Leds::set_colors(uint32_t brg)
+void Leds::set_colors(uint32_t brg1, uint32_t brg2)
 {	
     int32_t t0 = 0;
+	int16_t led_half_count = led_count/2;
     // Configure SYSTICK
 	STCURR = 0xffffff;// this resets to zero! otherwise it will keep value between enable/disable
     STRELOAD = 0xffffff;    // Reload value for largest tick possible
@@ -199,8 +230,8 @@ void Leds::set_colors(uint32_t brg)
 	t0 = STCURR; while((t0 - STCURR) < tres) {}	
 	__disable_irq();
 	//
-	for(uint16_t j = 0; j < led_count; j++) {
-		uint32_t color = brg;
+	for(uint16_t j = 0; j < led_half_count; j++) {
+		uint32_t color = brg1;
 	    for(uint8_t i = 0; i < 24; i++) {
 		    if (color & 0x1) {
                 this->digital_pin->set(true);				
@@ -216,6 +247,24 @@ void Leds::set_colors(uint32_t brg)
 		    color >>= 1; 
 	    }
 	}
+	//
+	for(uint16_t j = led_half_count; j < led_count; j++) {
+		uint32_t color = brg2;
+	    for(uint8_t i = 0; i < 24; i++) {
+		    if (color & 0x1) {
+                this->digital_pin->set(true);				
+    	        t0 = STCURR; while((t0 - STCURR) < t1h) {}
+                this->digital_pin->set(false);								
+	            t0 = STCURR; while((t0 - STCURR) < t1l) {}						
+	    	} else {
+                this->digital_pin->set(true);												
+	            t0 = STCURR; while((t0 - STCURR) < t0h) {}
+                this->digital_pin->set(false);																
+	            t0 = STCURR; while((t0 - STCURR) < t0l) {}									
+		    }
+		    color >>= 1; 
+	    }
+	}	
     //
     this->digital_pin->set(false);													
 	__enable_irq();	

@@ -29,8 +29,10 @@ class Leds : public Module {
         bool match_input_off_gcode(const Gcode* gcode) const;
 
 		uint8_t reverse(uint8_t b);		
-        void set_colors(uint32_t brg);
+        void set_colors(uint32_t brg1, uint32_t brg2);
 		uint32_t      led_count;
+		uint32_t      brg1;
+		uint32_t      brg2;		
         Pin           *digital_pin;
         struct {
 			uint32_t  tres;

@@ -83,19 +83,18 @@ extruder.a.enable                            true             # Whether to activ
 extruder.a.steps_per_mm                      0.5555           # Steps per mm for extruder stepper
 extruder.a.default_feed_rate                 10000            # Default rate ( mm/minute ) for moves where only the extruder moves
 extruder.a.acceleration                      1000             # Acceleration for the stepper motor, as of 0.6, arbitrary ratio
-extruder.a.max_speed                         180              # mm/s
+extruder.a.max_speed                         1000              # mm/s
 extruder.a.step_pin                          2.13             # Pin for extruder step signal
 extruder.a.dir_pin                           0.11             # Pin for extruder dir signal
 extruder.a.en_pin                            2.12             # Pin for extruder enable signal
 delta_current                                0.2              # First extruder stepper motor current
-
 
 # B axis
 extruder.b.enable                            true             # Whether to activate the extruder module at all. All configuration is ignored if false
 extruder.b.steps_per_mm                      0.5555           # Steps per mm for extruder stepper
 extruder.b.default_feed_rate                 10000            # Default rate ( mm/minute ) for moves where only the extruder moves
 extruder.b.acceleration                      1000             # Acceleration for the stepper motor, as of 0.6, arbitrary ratio
-extruder.b.max_speed                         180              # mm/s
+extruder.b.max_speed                         1000              # mm/s
 extruder.b.step_pin                          0.1              # Pin for extruder step signal
 extruder.b.dir_pin                           0.0              # Pin for extruder dir signal
 extruder.b.en_pin                            0.10             # Pin for extruder enable signal
@@ -173,7 +172,7 @@ leds.led.enable                            true
 leds.led.input_on_command                  M810
 leds.led.input_off_command                 M811
 leds.led.output_pin                        1.0
-leds.led.led_count                         8
+leds.led.led_count                         16
 
 # Switch module for first Z stepper motor driver
 switch.y1.enable                            true             # Enable this module
