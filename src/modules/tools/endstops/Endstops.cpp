@@ -46,7 +46,7 @@
     CHECKSUM(X "_homing_direction"),      \
     CHECKSUM(X "_min"),                   \
     CHECKSUM(X "_max"),                   \
-    CHECKSUM(X "_limit_enable")           \
+    CHECKSUM(X "_limit_enable"),          \
 }
 
 // checksum defns
@@ -452,7 +452,6 @@ bool Endstops::debounced_get(Pin *pin)
     return false;
 }
 
-
 // if limit switches are enabled, then we must move off of the endstop otherwise we won't be able to move
 // checks if triggered and only backs off if triggered
 void Endstops::back_off_home(axis_bitmap_t axis)
@@ -467,6 +466,7 @@ void Endstops::back_off_home(axis_bitmap_t axis)
         // Move off of the endstop using a regular relative move in Z only
         params.push_back({'Z', THEROBOT->from_millimeters(homing_axis[Z_AXIS].retract * (homing_axis[Z_AXIS].home_direction ? 1 : -1))});
         slow_rate= homing_axis[Z_AXIS].slow_rate;
+
     } else {
         // cartesians concatenate all the moves we need to do into one gcode
         for( auto& e : homing_axis) {
@@ -475,7 +475,7 @@ void Endstops::back_off_home(axis_bitmap_t axis)
             // if not triggered no need to move off
             if(e.pin_info != nullptr && e.pin_info->limit_enable && debounced_get(&e.pin_info->pin)) {
                 char ax= e.axis;
-                params.push_back({ax, THEROBOT->from_millimeters(e.retract * (e.home_direction ? 1 : -1))});                                
+                params.push_back({ax, THEROBOT->from_millimeters(e.retract * (e.home_direction ? 1 : -1))});
                 // select slowest of them all
                 slow_rate= isnan(slow_rate) ? e.slow_rate : std::min(slow_rate, e.slow_rate);
             }
@@ -606,52 +606,6 @@ uint32_t Endstops::read_endstops(uint32_t dummy)
     if(limit_enabled) check_limits();
 
     if(this->status != MOVING_TO_ENDSTOP_SLOW && this->status != MOVING_TO_ENDSTOP_FAST) return 0; // not doing anything we need to monitor for
-    /*
-        Rack and Pinion Head Homing
-        The Z axis has a home switch that is triggered for half the length
-        of the axis. To home it we need to first check if the switch is
-        triggered, and if it is we need to back off until it's no longer
-        triggered. Then we can perform a normal homing operation.
-    */
-    int rp_axis = Z_AXIS;
-    // If we are homing Z and Z switch is already triggered, back away first
-    if (((axes_to_move >> rp_axis) & 1) && this->pins[rp_axis + (this->home_direction[rp_axis] ? 0 : 3)].get()) {
-        // Start moving away from the switch
-        this->status = MOVING_BACK;
-        this->feed_rate[rp_axis]= this->fast_rates[rp_axis];
-        STEPPER[rp_axis]->move(!this->home_direction[rp_axis], 10000000, 0);
-
-        // Wait for the switch to clear
-        unsigned int debounce = 0;
-        while (debounce <= debounce_count) {
-            if (!this->pins[rp_axis + (this->home_direction[rp_axis] ? 0 : 3)].get()) {
-                debounce++;
-            }
-            else {
-                debounce = 0;
-            }
-
-            THEKERNEL->call_event(ON_IDLE);
-
-            // check if on_halt (eg kill)
-            if(THEKERNEL->is_halted()) return;
-        }
-
-        // Stop the movement
-        if (STEPPER[rp_axis]->is_moving()) {
-            STEPPER[rp_axis]->move(0, 0);
-        }
-    }
-
-    // this homing works for cartesian and delta printers
-    // Start moving the axes to the origin
-    this->status = MOVING_TO_ENDSTOP_FAST;
-    for ( int c = X_AXIS; c <= Z_AXIS; c++ ) {
-        if ( ( axes_to_move >> c) & 1 ) {
-            this->feed_rate[c] = this->fast_rates[c];
-            STEPPER[c]->move(this->home_direction[c], 10000000, 0);
-        }
-    }
 
     // check each homing endstop
     for(auto& e : homing_axis) { // check all axis homing endstops
@@ -665,9 +619,10 @@ uint32_t Endstops::read_endstops(uint32_t dummy)
 
         if(STEPPER[m]->is_moving()) {
             // if it is moving then we check the associated endstop, and debounce it
-            if((!e.pin_info->inverted && e.pin_info->pin.get()) || (e.pin_info->inverted && !e.pin_info->pin.get())) {
+            if(e.pin_info->pin.get()) {
                 if(e.pin_info->debounce < debounce_ms) {
                     e.pin_info->debounce++;
+
                 } else {
                     if(is_corexy && (m == X_AXIS || m == Y_AXIS)) {
                         // corexy when moving in X or Y we need to stop both the X and Y motors
@@ -680,6 +635,7 @@ uint32_t Endstops::read_endstops(uint32_t dummy)
                     }
                     e.pin_info->triggered= true;
                 }
+
             } else {
                 // The endstop was not hit yet
                 e.pin_info->debounce= 0;
@@ -723,27 +679,16 @@ void Endstops::home(axis_bitmap_t a)
     for(auto& e : endstops) {
        e->debounce= 0;
        e->triggered= false;
-       e->inverted= false;
+	   e->inverted= false;
     }
-    
+
     if (is_scara) {
         THEROBOT->disable_arm_solution = true;  // Polar bots has to home in the actuator space.  Arm solution disabled.
     }
 
     this->axis_to_home= a;
-    
     auto z_endstop_hit_initially = false;
     
-    if(axis_to_home[Z_AXIS]) {
-        z_endstop_hit_initially= debounced_get(&homing_axis[Z_AXIS].pin_info->pin);
-    }
-    // Start moving the axes to the origin
-    this->status = MOVING_TO_ENDSTOP_FAST;
-
-    THEROBOT->disable_segmentation= true; // we must disable segmentation as this won't work with it enabled
-
-    if(!home_z_first) home_xy();
-
     if(axis_to_home[Z_AXIS]) {
         // special procedure to move away from already hit homing switch
         if (z_endstop_hit_initially) {
@@ -757,7 +702,18 @@ void Endstops::home(axis_bitmap_t a)
             // restore state back
             this->status = MOVING_TO_ENDSTOP_FAST;                
             homing_axis[Z_AXIS].pin_info->inverted= false;
-        }
+        }		
+        z_endstop_hit_initially= debounced_get(&homing_axis[Z_AXIS].pin_info->pin);
+    }
+
+    // Start moving the axes to the origin
+    this->status = MOVING_TO_ENDSTOP_FAST;
+
+    THEROBOT->disable_segmentation= true; // we must disable segmentation as this won't work with it enabled
+
+    if(!home_z_first) home_xy();
+
+    if(axis_to_home[Z_AXIS]) {
         // now home z
         float delta[3] {0, 0, homing_axis[Z_AXIS].max_travel}; // we go the max z
         if(homing_axis[Z_AXIS].home_direction) delta[Z_AXIS]= -delta[Z_AXIS];
