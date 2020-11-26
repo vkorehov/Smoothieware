@@ -677,7 +677,7 @@ void Endstops::home(axis_bitmap_t a)
     for(auto& e : endstops) {
        e->debounce= 0;
        e->triggered= false;
-	   e->inverted= false;
+	   e->inverted = false;
     }
 
     if (is_scara) {
@@ -685,8 +685,19 @@ void Endstops::home(axis_bitmap_t a)
     }
 
     this->axis_to_home= a;
-    auto z_endstop_hit_initially = false;
-    
+	auto z_endstop_hit_initially = false;
+	
+    if(axis_to_home[Z_AXIS]) {
+        z_endstop_hit_initially= debounced_get(&homing_axis[Z_AXIS].pin_info->pin);
+    }
+	
+    // Start moving the axes to the origin
+    this->status = MOVING_TO_ENDSTOP_FAST;
+
+    THEROBOT->disable_segmentation= true; // we must disable segmentation as this won't work with it enabled
+
+    if(!home_z_first) home_xy();
+
     if(axis_to_home[Z_AXIS]) {
         // special procedure to move away from already hit homing switch
         if (z_endstop_hit_initially) {
@@ -700,18 +711,8 @@ void Endstops::home(axis_bitmap_t a)
             // restore state back
             this->status = MOVING_TO_ENDSTOP_FAST;                
             homing_axis[Z_AXIS].pin_info->inverted= false;
-        }		
-        z_endstop_hit_initially= debounced_get(&homing_axis[Z_AXIS].pin_info->pin);
-    }
-
-    // Start moving the axes to the origin
-    this->status = MOVING_TO_ENDSTOP_FAST;
-
-    THEROBOT->disable_segmentation= true; // we must disable segmentation as this won't work with it enabled
-
-    if(!home_z_first) home_xy();
-
-    if(axis_to_home[Z_AXIS]) {
+        }
+		
         // now home z
         float delta[3] {0, 0, homing_axis[Z_AXIS].max_travel}; // we go the max z
         if(homing_axis[Z_AXIS].home_direction) delta[Z_AXIS]= -delta[Z_AXIS];
