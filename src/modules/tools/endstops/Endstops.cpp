@@ -619,10 +619,9 @@ uint32_t Endstops::read_endstops(uint32_t dummy)
 
         if(STEPPER[m]->is_moving()) {
             // if it is moving then we check the associated endstop, and debounce it
-            if(e.pin_info->pin.get()) {
+            if((!e.pin_info->inverted && e.pin_info->pin.get()) || (e.pin_info->inverted && !e.pin_info->pin.get())) {
                 if(e.pin_info->debounce < debounce_ms) {
                     e.pin_info->debounce++;
-
                 } else {
                     if(is_corexy && (m == X_AXIS || m == Y_AXIS)) {
                         // corexy when moving in X or Y we need to stop both the X and Y motors
@@ -635,7 +634,6 @@ uint32_t Endstops::read_endstops(uint32_t dummy)
                     }
                     e.pin_info->triggered= true;
                 }
-
             } else {
                 // The endstop was not hit yet
                 e.pin_info->debounce= 0;
