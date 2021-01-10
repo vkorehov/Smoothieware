@@ -120,7 +120,7 @@ Robot::Robot()
     this->compensationTransform = nullptr;
     this->get_e_scale_fnc= nullptr;
     this->wcs_offsets.fill(wcs_t(0.0F, 0.0F, 0.0F));
-    this->g92_offset = wcs_t(0.0F, 0.0F, 0.0F);
+    memset(this->g92_offset, 0, sizeof g92_offset);
     this->next_command_is_MCS = false;
     this->disable_segmentation= false;
     this->disable_arm_solution= false;
@@ -201,7 +201,9 @@ void Robot::load_config()
         // optional setting for a fixed G92 offset
         std::vector<float> t= parse_number_list(g92.c_str());
         if(t.size() == 3) {
-            g92_offset = wcs_t(t[0], t[1], t[2]);
+            g92_offset[0] = t[0];
+            g92_offset[1] = t[1];
+            g92_offset[2] = t[2];
         }
     }
 
@@ -339,7 +341,7 @@ std::vector<Robot::wcs_t> Robot::get_wcs_state() const
     for(auto& i : wcs_offsets) {
         v.push_back(i);
     }
-    v.push_back(g92_offset);
+    v.push_back(wcs_t(g92_offset[0], g92_offset[1], g92_offset[2]));
     v.push_back(tool_offset);
     return v;
 }
@@ -413,11 +415,15 @@ void Robot::print_position(uint8_t subcode, std::string& res, bool ignore_extrud
     for (int i = A_AXIS; i < n_motors; ++i) {
         n= 0;
         if(ignore_extruders && actuators[i]->is_extruder()) continue; // don't show an extruder as that will be E
-        if(subcode == 4) { // M114.4 print last milestone
-            n= snprintf(buf, sizeof(buf), " %c:%1.4f", 'A'+i-A_AXIS, machine_position[i]);
-
-        }else if(subcode == 2 || subcode == 3) { // M114.2/M114.3 print actuator position which is the same as machine position for ABC
-            // current actuator position
+        if(subcode == 0) { // M114 print last milestone which is the machine position with g92 offset applied for ABC
+            n= snprintf(buf, sizeof(buf), " %c:%1.4f", 'A'+i-A_AXIS, machine_position[i] + g92_offset[i]);
+        }else if(subcode == 4) { // M114.4 print last milestone in machine coordinates
+    		n= snprintf(buf, sizeof(buf), " %c:%1.4f", 'A'+i-A_AXIS, machine_position[i]);
+        }else if(subcode == 1) { // M114.1 prints real time position which is the machine position with g92 offset applied for ABC
+            // current position 
+            n= snprintf(buf, sizeof(buf), " %c:%1.4f", 'A'+i-A_AXIS,  actuators[i]->get_current_position() + g92_offset[i]);
+        }else if(subcode == 2 || subcode == 3) { // M114.1/M114.2/M114.3 print actuator position which is the same as machine position for ABC
+    		// current actuator position
             n= snprintf(buf, sizeof(buf), " %c:%1.4f", 'A'+i-A_AXIS, actuators[i]->get_current_position());
         }
         if(n > sizeof(buf)) n= sizeof(buf);
@@ -430,20 +436,20 @@ void Robot::print_position(uint8_t subcode, std::string& res, bool ignore_extrud
 Robot::wcs_t Robot::mcs2wcs(const Robot::wcs_t& pos) const
 {
     return std::make_tuple(
-        std::get<X_AXIS>(pos) - std::get<X_AXIS>(wcs_offsets[current_wcs]) + std::get<X_AXIS>(g92_offset) - std::get<X_AXIS>(tool_offset),
-        std::get<Y_AXIS>(pos) - std::get<Y_AXIS>(wcs_offsets[current_wcs]) + std::get<Y_AXIS>(g92_offset) - std::get<Y_AXIS>(tool_offset),
-        std::get<Z_AXIS>(pos) - std::get<Z_AXIS>(wcs_offsets[current_wcs]) + std::get<Z_AXIS>(g92_offset) - std::get<Z_AXIS>(tool_offset)
-    );
+        std::get<X_AXIS>(pos) - std::get<X_AXIS>(wcs_offsets[current_wcs]) + g92_offset[X_AXIS] - std::get<X_AXIS>(tool_offset),
+        std::get<Y_AXIS>(pos) - std::get<Y_AXIS>(wcs_offsets[current_wcs]) + g92_offset[Y_AXIS] - std::get<Y_AXIS>(tool_offset),
+        std::get<Z_AXIS>(pos) - std::get<Z_AXIS>(wcs_offsets[current_wcs]) + g92_offset[Z_AXIS] - std::get<Z_AXIS>(tool_offset)
+		);
 }
 
 // converts a position in work coordinate system to machine coordinate system (machine position)
 Robot::wcs_t Robot::wcs2mcs(const Robot::wcs_t& pos) const
 {
     return std::make_tuple(
-        std::get<X_AXIS>(pos) + std::get<X_AXIS>(wcs_offsets[current_wcs]) - std::get<X_AXIS>(g92_offset) + std::get<X_AXIS>(tool_offset),
-        std::get<Y_AXIS>(pos) + std::get<Y_AXIS>(wcs_offsets[current_wcs]) - std::get<Y_AXIS>(g92_offset) + std::get<Y_AXIS>(tool_offset),
-        std::get<Z_AXIS>(pos) + std::get<Z_AXIS>(wcs_offsets[current_wcs]) - std::get<Z_AXIS>(g92_offset) + std::get<Z_AXIS>(tool_offset)
-    );
+        std::get<X_AXIS>(pos) + std::get<X_AXIS>(wcs_offsets[current_wcs]) - g92_offset[X_AXIS] + std::get<X_AXIS>(tool_offset),
+        std::get<Y_AXIS>(pos) + std::get<Y_AXIS>(wcs_offsets[current_wcs]) - g92_offset[Y_AXIS] + std::get<Y_AXIS>(tool_offset),
+        std::get<Z_AXIS>(pos) + std::get<Z_AXIS>(wcs_offsets[current_wcs]) - g92_offset[Z_AXIS] + std::get<Z_AXIS>(tool_offset)
+		);
 }
 
 // this does a sanity check that actuator speeds do not exceed steps rate capability
@@ -591,7 +597,7 @@ void Robot::on_gcode_received(void *argument)
             case 92: {
                 if(gcode->subcode == 1 || gcode->subcode == 2 || gcode->get_num_args() == 0) {
                     // reset G92 offsets to 0
-                    g92_offset = wcs_t(0, 0, 0);
+                    memset(g92_offset, 0, sizeof g92_offset);
 
                 } else if(gcode->subcode == 4) {
                     // G92.4 is a smoothie special it sets manual homing for X,Y,Z
@@ -606,12 +612,16 @@ void Robot::on_gcode_received(void *argument)
                     if(gcode->has_letter('X')) x= gcode->get_value('X');
                     if(gcode->has_letter('Y')) y= gcode->get_value('Y');
                     if(gcode->has_letter('Z')) z= gcode->get_value('Z');
-                    g92_offset = wcs_t(x, y, z);
-
+                    g92_offset[X_AXIS] = x;
+                    g92_offset[Y_AXIS] = y;
+                    g92_offset[Z_AXIS] = z;
+					
                 } else {
                     // standard setting of the g92 offsets, making current WCS position whatever the coordinate arguments are
                     float x, y, z;
-                    std::tie(x, y, z) = g92_offset;
+                    x = g92_offset[X_AXIS];
+                    y = g92_offset[Y_AXIS];
+                    z = g92_offset[Z_AXIS];
                     // get current position in WCS
                     wcs_t pos= mcs2wcs(machine_position);
 
@@ -625,8 +635,10 @@ void Robot::on_gcode_received(void *argument)
                     if(gcode->has_letter('Z')) {
                         z += to_millimeters(gcode->get_value('Z')) - std::get<Z_AXIS>(pos);
                     }
-                    g92_offset = wcs_t(x, y, z);
-                }
+                    g92_offset[X_AXIS] = x;
+                    g92_offset[Y_AXIS] = y;
+                    g92_offset[Z_AXIS] = z;
+				}
 
                 #if MAX_ROBOT_ACTUATORS > 3
                 if(gcode->subcode == 0 && (gcode->has_letter('E') || gcode->get_num_args() == 0)){
@@ -642,12 +654,11 @@ void Robot::on_gcode_received(void *argument)
                 if(gcode->subcode == 0 && gcode->get_num_args() > 0) {
                     for (int i = A_AXIS; i < n_motors; i++) {
                         // ABC just need to set machine_position and compensated_machine_position if specified
-                        char axis= 'A'+i-3;
+                        char axis= 'A'+i-A_AXIS;
                         float ap= gcode->get_value(axis);
                         if((!actuators[i]->is_extruder() || ap == 0) && gcode->has_letter(axis)) {
-                            machine_position[i]= compensated_machine_position[i]= ap;
-                            actuators[i]->change_last_milestone(ap); // this updates the last_milestone in the actuator
-                        }
+                            g92_offset[i] = ap - machine_position[i];
+						}
                     }
                 }
                 #endif
@@ -936,9 +947,13 @@ void Robot::on_gcode_received(void *argument)
                 if(save_g92) {
                     // linuxcnc saves G92, so we do too if configured, default is to not save to maintain backward compatibility
                     // also it needs to be used to set Z0 on rotary deltas as M206/306 can't be used, so saving it is necessary in that case
-                    if(g92_offset != wcs_t(0, 0, 0)) {
+                    if(g92_offset[X_AXIS] != 0 
+                    || g92_offset[Y_AXIS] != 0 
+                    || g92_offset[Z_AXIS] != 0) {
                         float x, y, z;
-                        std::tie(x, y, z) = g92_offset;
+                        x = g92_offset[X_AXIS];
+                        y = g92_offset[Y_AXIS];
+                        z = g92_offset[Z_AXIS];
                         gcode->stream->printf("G92.3 X%f Y%f Z%f\n", x, y, z); // sets G92 to the specified values
                     }
                 }
@@ -1029,17 +1044,16 @@ void Robot::process_move(Gcode *gcode, enum MOTION_MODE_T motion_mode)
         if(this->absolute_mode) {
             // apply wcs offsets and g92 offset and tool offset
             if(!isnan(param[X_AXIS])) {
-                target[X_AXIS]= param[X_AXIS] + std::get<X_AXIS>(wcs_offsets[current_wcs]) - std::get<X_AXIS>(g92_offset) + std::get<X_AXIS>(tool_offset);
-            }
+                target[X_AXIS]= param[X_AXIS] + std::get<X_AXIS>(wcs_offsets[current_wcs]) - g92_offset[X_AXIS] + std::get<X_AXIS>(tool_offset);
+			}
 
             if(!isnan(param[Y_AXIS])) {
-                target[Y_AXIS]= param[Y_AXIS] + std::get<Y_AXIS>(wcs_offsets[current_wcs]) - std::get<Y_AXIS>(g92_offset) + std::get<Y_AXIS>(tool_offset);
-            }
+                target[Y_AXIS]= param[Y_AXIS] + std::get<Y_AXIS>(wcs_offsets[current_wcs]) - g92_offset[Y_AXIS] + std::get<Y_AXIS>(tool_offset);
+			}
 
             if(!isnan(param[Z_AXIS])) {
-                target[Z_AXIS]= param[Z_AXIS] + std::get<Z_AXIS>(wcs_offsets[current_wcs]) - std::get<Z_AXIS>(g92_offset) + std::get<Z_AXIS>(tool_offset);
-            }
-
+                target[Z_AXIS]= param[Z_AXIS] + std::get<Z_AXIS>(wcs_offsets[current_wcs]) - g92_offset[Z_AXIS] + std::get<Z_AXIS>(tool_offset);
+			}
         }else{
             // they are deltas from the machine_position if specified
             for(int i= X_AXIS; i <= Z_AXIS; ++i) {
@@ -1081,7 +1095,7 @@ void Robot::process_move(Gcode *gcode, enum MOTION_MODE_T motion_mode)
         if(gcode->has_letter(letter)) {
             float p= gcode->get_value(letter);
             if(this->absolute_mode) {
-                target[i]= p;
+                target[i]= p - g92_offset[i];
             }else{
                 target[i]= p + machine_position[i];
             }
@@ -1235,7 +1249,7 @@ bool Robot::append_milestone(const float target[], float rate_mm_s)
 {
     float deltas[n_motors];
     float transformed_target[n_motors]; // adjust target for bed compensation
-    float unit_vec[N_PRIMARY_AXIS];
+    float unit_vec[MAX_ROBOT_ACTUATORS];
 
     // unity transform by default
     memcpy(transformed_target, target, n_motors*sizeof(float));
@@ -1282,46 +1296,99 @@ bool Robot::append_milestone(const float target[], float rate_mm_s)
 
 
     bool move= false;
+    bool primary_move= false;
+    bool secondary_move = false;	
     float sos= 0; // sum of squares for just primary axis (XYZ usually)
 
     // find distance moved by each axis, use transformed target from the current compensated machine position
     for (size_t i = 0; i < n_motors; i++) {
         deltas[i] = transformed_target[i] - compensated_machine_position[i];
-        if(fabsf(deltas[i]) < 0.00001F) continue;
+        if(deltas[i] == 0) continue;
         // at least one non zero delta
-        move = true;
         if(i < N_PRIMARY_AXIS) {
             sos += powf(deltas[i], 2);
+            primary_move = true;
+        } else {
+            secondary_move = true;			
         }
     }
 
     // nothing moved
-    if(!move) return false;
+if(!(primary_move||secondary_move)) return false;
+
+
+    // NIST RS274NGC Interpreter - Version 3, Section 2.1.2.5 applies feedrates as follows:
+    //
+    // A. For motion involving one or more of the X, Y, and Z axes (with or without simultaneous
+    //    rotational axis motion), the feed rate means length units per minute along the
+    //    programmed XYZ path, as if the rotational axes were not moving.
+    //
+    // B. For motion of one rotational axis with X, Y, and Z axes not moving, the feed rate means
+    //    degrees per minute rotation of the rotational axis.
+    //
+    // C. For motion of two or three rotational axes with X, Y, and Z axes not moving, the rate is
+    //    applied as follows.Let dA, dB, and dC be the angles in degrees through which the A, B,
+    //    and C axes, respectively, must move. Let D = sqrt((dA)^2 + (dB)^2 + (dC)^2). Conceptually, 
+    //    D is a measure of total angular motion, using the usual Euclidean metric. Let T be the 
+    //    amount of time required to move through D degrees at the current feed rate in degrees per
+    //    minute. The rotational axes should be moved in coordinated linear motion so that the
+    //    elapsed time from the start to the end of the motion is T plus any time required for
+    //    acceleration or deceleration.
+
+    // Rule C is equivalent to rule B so only two cases have to be distinguished. Rule B/C moves are called "auxilliary". 
+    // Note that for mixed moves under rule A the secondary axes ABC are allowed to move as fast as they can 
+    // (up to the actuator limits). This is relevant when the motion on ABC is numerically much larger than the one 
+    // on XYZ. This is often the case with rotation angles in degrees vs. small mm dimensions. Feedrates in 
+    // millimeters per minute should not be mixed with rotation speeds in degrees per minute. With other applications (i.e. 
+    // extruders), the same may be true. 
 
     // see if this is a primary axis move or not
-    bool auxilliary_move= true;
-    for (int i = 0; i < N_PRIMARY_AXIS; ++i) {
-        if(fabsf(deltas[i]) >= 0.00001F) {
-            auxilliary_move= false;
-            break;
+    bool auxilliary_move = !primary_move;
+
+    // total movement, use XYZ if a primary axis otherwise we calculate distance for ABC after scaling to mm for extruders
+    float distance = auxilliary_move ? 0 : sqrtf(sos);
+    bool override_feedrate = false;
+    bool override_acceleration = false;
+
+    // it is unlikely but we need to protect against divide by zero, so ignore insanely small moves here
+    if (!auxilliary_move && distance < 0.00001F) {
+        // we're skipping the primary actuators but there might still be secondary motion
+        if (secondary_move) {
+            #ifndef ROBOT_NO_BAIL_ON_NEARZERO_XYZ
+                for (size_t i = E_AXIS; i < n_motors; i++) {
+                    if (deltas[i] != 0 && actuators[i]->is_extruder()) {
+                        // one or more of the moved secondary axes are extruders - bail anyway to prevent blobs
+                        // as the last milestone won't be updated we do not actually lose any moves as they will be accounted for in the next move
+                        return false;
+                    }
+                }
+            #endif
+
+            // with near zero primary motion, we handle this as an auxiliary move
+            auxilliary_move = true;
+            // NOTE: the NIST RS274NGC section 2.1.2.5 rule A still applies, so we must NOT apply the feedrate 
+            // to the secondary axes (i.e. not interprete millimeters/min as degrees/min). This is important as otherwise there 
+            // might be a glitch (a sudden dip) in effective feedrate for one tiny segment, causing the planner to painfully 
+            // slow down moves before and after.
+            override_feedrate = true;
+            override_acceleration = true;
+        }
+        else {
+            // as the last milestone won't be updated we do not actually lose any moves as they will be accounted for in the next move
+            return false;
         }
     }
 
-    // total movement, use XYZ if a primary axis otherwise we calculate distance for E after scaling to mm
-    float distance= auxilliary_move ? 0 : sqrtf(sos);
-
-    // it is unlikely but we need to protect against divide by zero, so ignore insanely small moves here
-    // as the last milestone won't be updated we do not actually lose any moves as they will be accounted for in the next move
-    if(!auxilliary_move && distance < 0.00001F) return false;
-
+    // find actuator position given the machine position, use actual adjusted target
+    ActuatorCoordinates actuator_pos;
+	
     if(!auxilliary_move) {
-         for (size_t i = X_AXIS; i < N_PRIMARY_AXIS; i++) {
-            // find distance unit vector for primary axis only
-            unit_vec[i] = deltas[i] / distance;
-
-            // Do not move faster than the configured cartesian limits for XYZ
-            if ( i <= Z_AXIS && max_speeds[i] > 0 ) {
-                float axis_speed = fabsf(unit_vec[i] * rate_mm_s);
+         for (size_t i = X_AXIS; i < Z_AXIS; i++) {
+        	// Do not move faster than the configured cartesian limits for XYZ
+            if (max_speeds[i] > 0 ) {
+                // find distance unit vector for primary axis only
+                float unit_vec_xyz = deltas[i] / distance;
+                float axis_speed = fabsf(unit_vec_xyz * rate_mm_s);
 
                 if (axis_speed > max_speeds[i])
                     rate_mm_s *= ( max_speeds[i] / axis_speed );
@@ -1331,75 +1398,106 @@ bool Robot::append_milestone(const float target[], float rate_mm_s)
         if(this->max_speed > 0 && rate_mm_s > this->max_speed) {
             rate_mm_s= this->max_speed;
         }
-    }
 
-    // find actuator position given the machine position, use actual adjusted target
-    ActuatorCoordinates actuator_pos;
-    if(!disable_arm_solution) {
-        arm_solution->cartesian_to_actuator( transformed_target, actuator_pos );
+        if(!disable_arm_solution) {
+            arm_solution->cartesian_to_actuator( transformed_target, actuator_pos );
         // some arm solutions can indicate a halt if the calcs go bad
         if(THEKERNEL->is_halted()) return false;
 
-    }else{
-        // basically the same as cartesian, would be used for special homing situations like for scara
+        }else{
+            // basically the same as cartesian, would be used for special homing situations like for scara
+            for (size_t i = X_AXIS; i <= Z_AXIS; i++) {
+                actuator_pos[i] = transformed_target[i];
+            }
+        }
+    }
+    else {
+        // this is an auxiliary move, so we just copy the last XYZ actuator positions, 
+        // no need to do a new cartesian_to_actuator transformation.
+        // NOTE when we skipped a near zero distance primary axes move (see above) we really must keep the old position.
         for (size_t i = X_AXIS; i <= Z_AXIS; i++) {
-            actuator_pos[i] = transformed_target[i];
+            actuator_pos[i] = actuators[i]->get_last_milestone();
         }
     }
 
 #if MAX_ROBOT_ACTUATORS > 3
     sos= 0;
-    // for the extruders just copy the position, and possibly scale it from mm³ to mm
+    // for the secondary axes just copy the position, and possibly scale extruders from mm³ to mm
     for (size_t i = E_AXIS; i < n_motors; i++) {
-        actuator_pos[i]= transformed_target[i];
-        if(actuators[i]->is_extruder() && get_e_scale_fnc) {
-            // NOTE this relies on the fact only one extruder is active at a time
-            // scale for volumetric or flow rate
-            // TODO is this correct? scaling the absolute target? what if the scale changes?
-            // for volumetric it basically converts mm³ to mm, but what about flow rate?
-            actuator_pos[i] *= get_e_scale_fnc();
-        }
-        if(auxilliary_move) {
-            // for E only moves we need to use the scaled E to calculate the distance
-            sos += powf(actuator_pos[i] - actuators[i]->get_last_milestone(), 2);
-        }
+        if (auxilliary_move && i < N_PRIMARY_AXIS) {
+            // only with N_PRIMARY_AXIS > 3 :
+            // this is an auxiliary move, so we just copy the last primary axis actuator positions, 
+            // no need to do a new get_e_scale_fnc.
+            // NOTE when we skipped a near zero distance primary axes move (see above) we really must keep the old position.
+            actuator_pos[i] = actuators[i]->get_last_milestone();
+		}
+        else { 
+            actuator_pos[i]= transformed_target[i];
+            if(actuators[i]->is_extruder() && get_e_scale_fnc) {
+                // NOTE this relies on the fact only one extruder is active at a time
+                // scale for volumetric or flow rate
+                // TODO is this correct? scaling the absolute target? what if the scale changes?
+                // for volumetric it basically converts mm³ to mm, but what about flow rate?
+                actuator_pos[i] *= get_e_scale_fnc();
+            }
+            if(auxilliary_move) {
+                // for secondary axes only moves we need to use the scaled positions to calculate the distance
+                sos += powf(actuator_pos[i] - actuators[i]->get_last_milestone(), 2);
+            }
+		}
     }
     if(auxilliary_move) {
-        distance= sqrtf(sos); // distance in mm of the e move
+        distance= sqrtf(sos); // distance in mm of the auxilliary move
         if(distance < 0.00001F) return false;
     }
 #endif
 
-    DEBUG_PRINTF("distance: %f, aux_move: %d\n", distance, auxilliary_move);
-
+    float spacial_sos = 0;
+    for (size_t i = 0; i < n_motors; i++) {
+      // find overall spacial distance for junction deviation
+      spacial_sos += powf(deltas[i], 2);
+    }
+    float spacial_distance = sqrtf(spacial_sos);
+    for (size_t i = 0; i < n_motors; i++) {
+      // find distance unit vector for all axes
+      unit_vec[i] = deltas[i] / spacial_distance;
+    }
+	
     // use default acceleration to start with
     float acceleration = default_acceleration;
 
-    float isecs = rate_mm_s / distance;
-
-    // check per-actuator speed limits
+    // check per-actuator speed and acceleration limits
     for (size_t actuator = 0; actuator < n_motors; actuator++) {
         float d = fabsf(actuator_pos[actuator] - actuators[actuator]->get_last_milestone());
-        if(d < 0.00001F || !actuators[actuator]->is_selected()) continue; // no realistic movement for this actuator
+        if(d == 0 || !actuators[actuator]->is_selected()) continue; // no movement for this actuator
 
-        float actuator_rate= d * isecs;
-        if (actuator_rate > actuators[actuator]->get_max_rate()) {
-            rate_mm_s *= (actuators[actuator]->get_max_rate() / actuator_rate);
-            isecs = rate_mm_s / distance;
-            DEBUG_PRINTF("new rate: %f - %d\n", rate_mm_s, actuator);
+        // as all limits are applied relative to the euclidean distance, the limits applicable to a single actuator 
+        // can be multiplied by euclidean distance per actuator motion 
+        float limit_factor = distance / d;
+        // NOTE: many times d is a part of the cartesian (XYZ or ABC) vector making up the euclidean distance, so it follows that
+        // d <= distance and limit_factor >= 1.  
+        // But for arm_solutions other than cartesian and for secondary axes (ABC) in mixed motion, the 
+        // delta (d) may be larger than the euclidean distance, so the limit_factor can be smaller
+        // than 1 meaning that the actuator rate and acceleration limits apply more stringently. 
+
+        // adjust rate to lowest found
+        float actuator_rate = limit_factor * actuators[actuator]->get_max_rate();
+        if (rate_mm_s > actuator_rate || override_feedrate) {
+            rate_mm_s = actuator_rate;
+            // the first we find overrides the default; subsequent ones only limit if smaller
+            override_feedrate = false;
         }
 
-        DEBUG_PRINTF("act: %d, d: %f, distance: %f, actrate: %f, rate: %f, secs: %f, acc: %f\n", actuator, d, distance, actuator_rate, rate_mm_s, 1/isecs, acceleration);
-
-        // adjust acceleration to lowest found, for all actuators as this also corrects
-        // the math for a tiny X move and large A move
+        // adjust acceleration to lowest found
+        // NOTE: we need to do all of them, check if any axis won't limit XYZ.. it does on long moves, but not checking it could exceed the axis acceleration.
         float ma =  actuators[actuator]->get_acceleration(); // in mm/sec²
         if(!isnan(ma)) {  // if axis does not have acceleration set then it uses the default_acceleration
-            float ca = (d/distance) * acceleration;
-            if (ca > ma) {
-                acceleration *= ( ma / ca );
-                DEBUG_PRINTF("new acceleration: %f\n", acceleration);
-            }
+            ma *= limit_factor;
+            if (acceleration > ma || override_acceleration) {
+                acceleration = ma;
+                // the first we find overrides the default; subsequent ones only limit if smaller
+                override_acceleration = false;
+			}
         }
     }
 
@@ -1413,8 +1511,7 @@ bool Robot::append_milestone(const float target[], float rate_mm_s)
     // Append the block to the planner
     // NOTE that distance here should be either the distance travelled by the XYZ axis, or the E mm travel if a solo E move
     // NOTE this call will bock until there is room in the block queue, on_idle will continue to be called
-    if(THEKERNEL->planner->append_block( actuator_pos, n_motors, rate_mm_s, distance, auxilliary_move ? nullptr : unit_vec, acceleration, s_value, is_g123)) {
-        // this is the new compensated machine position
+    if(THEKERNEL->planner->append_block( actuator_pos, n_motors, rate_mm_s, distance, unit_vec, acceleration, s_value, is_g123)) {        // this is the new compensated machine position
         memcpy(this->compensated_machine_position, transformed_target, n_motors*sizeof(float));
         return true;
     }
