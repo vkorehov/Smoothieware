@@ -189,7 +189,7 @@ switch.y2.startup_state                     true
 switch.y2.output_pin                        2.0              # Pin to control enable pin of driver
 
 zprobe.enable                true               # set to true to enable a zprobe
-zprobe.probe_pin             3.26               # pin probe is attached to
+zprobe.probe_pin             3.26!^             # pin probe is attached to
 zprobe.slow_feedrate         5                  # mm/sec probe feed rate
 zprobe.fast_feedrate         15                 # mm/sec probe feed rate
 zprobe.return_feedrate       15                 # mm/sec probe feed rate
