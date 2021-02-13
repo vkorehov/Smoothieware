@@ -218,7 +218,7 @@ void Leds::on_gcode_received(void *argument)
 void Leds::set_colors(uint32_t brg1, uint32_t brg2)
 {	
     int32_t t0 = 0;
-	int16_t led_half_count = led_count/2;
+	int16_t led_split_count = 16;
     // Configure SYSTICK
 	STCURR = 0xffffff;// this resets to zero! otherwise it will keep value between enable/disable
     STRELOAD = 0xffffff;    // Reload value for largest tick possible
@@ -230,7 +230,7 @@ void Leds::set_colors(uint32_t brg1, uint32_t brg2)
 	t0 = STCURR; while((t0 - STCURR) < tres) {}	
 	__disable_irq();
 	//
-	for(uint16_t j = 0; j < led_half_count; j++) {
+	for(uint16_t j = 0; j < led_split_count; j++) {
 		uint32_t color = brg1;
 	    for(uint8_t i = 0; i < 24; i++) {
 		    if (color & 0x1) {
@@ -248,7 +248,7 @@ void Leds::set_colors(uint32_t brg1, uint32_t brg2)
 	    }
 	}
 	//
-	for(uint16_t j = led_half_count; j < led_count; j++) {
+	for(uint16_t j = led_split_count; j < led_count; j++) {
 		uint32_t color = brg2;
 	    for(uint8_t i = 0; i < 24; i++) {
 		    if (color & 0x1) {

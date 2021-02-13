@@ -172,7 +172,7 @@ leds.led.enable                            true
 leds.led.input_on_command                  M810
 leds.led.input_off_command                 M811
 leds.led.output_pin                        1.0
-leds.led.led_count                         16
+leds.led.led_count                         24
 
 # Switch module for first Z stepper motor driver
 switch.y1.enable                            true             # Enable this module
